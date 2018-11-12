@@ -62,7 +62,7 @@ class DataUnitViewSet(viewsets.ModelViewSet):
 
 @api_view()
 def dataSet(
-        request, data_set_ids=[0], types="CTDTMP", bounds=[], min_depth=0,
+        request, data_set_ids=[0], types=['temperature'], bounds=[], min_depth=0,
         max_depth=0
 ):
     result=get_data_set_data(data_set_ids, types, bounds, min_depth, max_depth)
@@ -73,7 +73,7 @@ def crossover(request, data_set_id=0, types=[]):
     """
     Calculate crossover for this dataset.
     """
-    # Always include CTDTMP and SALNTY
+    # Always include temperature and salinity
     types.extend(['temperature', 'salinity'])
     types = list(set(types))
     min_depth = 1000

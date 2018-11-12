@@ -99,10 +99,10 @@ def get_data_set_data(data_set_ids=[0], types=[], bounds=[], min_depth=0, max_de
     select = """
         SELECT ds.id as data_set_id, ds.expocode,
         s.id as station_id, s.station_number,
+        st_y(s.position) as latitude, st_x(s.position) as longitude,
         c.id as cast_id, c.cast as cast_no,
         d.id as depth_id, d.depth,
-        d.date_and_time,
-        st_y(s.position) as latitude, st_x(s.position) as longitude
+        d.date_and_time
     """
     frm = " FROM  d2qc_data_sets ds"
     join = " INNER JOIN d2qc_stations s ON (ds.id = s.data_set_id)"
@@ -151,7 +151,7 @@ def get_data_set_data(data_set_ids=[0], types=[], bounds=[], min_depth=0, max_de
     station = {}
     cast = {}
     output = {}
-    output['data_columns'] = [col[0] for col in cursor.description][6:]
+    output['data_columns'] = [col[0] for col in cursor.description][8:]
     output['data_sets'] = []
     for row in cursor.fetchall():
         if (row[0]) != data_set_id:
@@ -163,34 +163,38 @@ def get_data_set_data(data_set_ids=[0], types=[], bounds=[], min_depth=0, max_de
             station = {'casts':[]}
             station['station_id'] = row[2]
             station['station_number'] = row[3]
+            station['latitude'] = row[4]
+            station['longitude'] = row[5]
             cast = {}
-            cast['cast_id'] = row[4]
-            cast['cast_no'] = row[5]
+            cast['cast_id'] = row[6]
+            cast['cast_no'] = row[7]
             data_set['data_set_id'] = row[0]
             data_set['expocode'] = row[1]
             data_set_id = (row[0])
             station_id = (row[0], row[2])
-            cast_id = (row[0], row[2], row[4])
+            cast_id = (row[0], row[2], row[6])
         elif (row[0], row[2]) != station_id:
             if station_id:
                 station['casts'].append(cast);
                 data_set['stations'].append(station)
             cast = {}
-            cast['cast_id'] = row[4]
-            cast['cast_no'] = row[5]
+            cast['cast_id'] = row[6]
+            cast['cast_no'] = row[7]
             station = {'casts':[]}
             station['station_id'] = row[2]
             station['station_number'] = row[3]
+            station['latitude'] = row[4]
+            station['longitude'] = row[5]
             station_id = (row[0], row[2])
-            cast_id = (row[0], row[2], row[4])
-        elif (row[0], row[2], row[4]) != cast_id:
+            cast_id = (row[0], row[2], row[6])
+        elif (row[0], row[2], row[6]) != cast_id:
             if cast_id:
                 station['casts'].append(cast);
             cast = {}
-            cast['cast_id'] = row[4]
-            cast['cast_no'] = row[5]
-            cast_id = (row[0], row[2], row[4])
-        for i, v in enumerate(row[6:]):
+            cast['cast_id'] = row[6]
+            cast['cast_no'] = row[7]
+            cast_id = (row[0], row[2], row[6])
+        for i, v in enumerate(row[8:]):
             if not output['data_columns'][i] in cast:
                 cast[output['data_columns'][i]] = []
             cast[output['data_columns'][i]].append(v)
