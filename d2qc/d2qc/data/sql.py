@@ -227,3 +227,53 @@ def dataset_extends(data_set_id, min_depth = 0):
     print(select + join + where + " limit 5;")
     cursor.execute(select + join + where, args)
     return cursor.fetchone()
+
+def get_xover_data_sets(data_set_id, range=200*1000, use_bbox=True):
+    """Get all datasets that have stations within the range of stations in this
+    dataset, using the provided range in meters.
+
+    Keyword arguments:
+    data_set_id -- The dataset for stations to query
+    range       -- Default 200000m. Range in meters around stations that will
+                   return a match
+    use_bbox    -- Default True. Use the bounding box of the stations for the
+                   dataset argument instead of the actual stations. This is
+                   much faster but less accurate, and usually returns more
+                   data sets than the more precise method.
+
+    Example:
+    >>> get_xover_data_sets(5, 100000)
+    [2, 4, 6, 8, 11, 13, 15, 16, 19, 20, 226, 227, 239, 621, 701, 703]
+
+    >>> get_xover_data_sets(5, 200000, False)
+    [2, 4, 6, 8, 11, 13, 15, 16, 19, 20, 621, 701, 703]
+    ... data_set_ids with stations within 100km of stations in data_set_id 5.
+
+
+    """
+    cursor = connection.cursor()
+    select = """
+            SELECT DISTINCT s.data_set_id
+            FROM d2qc_stations s, d2qc_stations s2
+            WHERE ST_DistanceSphere(s.position, s2.position) < %s
+            AND s2.data_set_id=%s AND s.data_set_id<>%s
+            ORDER BY s.data_set_id;
+    """
+    args = [range, data_set_id, data_set_id]
+    if use_bbox:
+        select = """
+                SELECT DISTINCT s.data_set_id
+                FROM d2qc_stations s, (
+                    SELECT  ST_Extent(position) AS position
+                    FROM d2qc_stations
+                    WHERE data_set_id=%s
+                ) s2
+                WHERE ST_DistanceSphere(s.position, s2.position) < %s
+                AND s.data_set_id<>%s
+                ORDER BY s.data_set_id;
+        """
+        args = [data_set_id, range, data_set_id]
+
+
+    cursor.execute(select, args)
+    return [row[0] for row in cursor.fetchall()]
