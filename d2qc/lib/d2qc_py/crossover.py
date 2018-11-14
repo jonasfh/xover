@@ -39,11 +39,6 @@ def plot_overview_map(dataset = [], refdata=[], center_lat=0, center_lon=0):
     Plot matching reference-cruices together with the current cruise, to show
     how they match in space.
     """
-    for ix,name in enumerate(dataset[0]['data_columns']):
-        if name == 'latitude':
-            latix = ix
-        elif name == 'longitude':
-            lonix = ix
 
     map = Basemap(projection='ortho', lat_0=center_lat, lon_0=center_lon,
             resolution='c')
@@ -60,25 +55,22 @@ def plot_overview_map(dataset = [], refdata=[], center_lat=0, center_lon=0):
     links = {}
     plots = []
     cnt = 0
-    for ref_dataset in refdata:
+    dataset_expocode = dataset['data_sets'][0]['expocode'];
+    for ref_dataset in refdata['data_sets']:
         expocode = ref_dataset['expocode']
-        ref_lat = None
-        ref_lon = None
-        lat = None
-        lon = None
-        for ref in ref_dataset['data_points']:
-            if ref_lat != ref[latix] and ref_lon != ref[lonix]:
-                plots.append(map.plot(ref[lonix], ref[latix], latlon=True, color='red', marker='o',
-                        linestyle='', markerfacecolor='none'))
-            ref_lat = ref[latix]
-            ref_lon = ref[lonix]
-        for row in dataset[0]['data_points']:
-            if lat != row[latix] and lon != row[lonix]:
-                plots.append(map.plot(row[lonix], row[latix], latlon=True, color='blue', marker='o',
-                        linestyle='', markerfacecolor='none'))
-            lat = row[latix]
-            lon = row[lonix]
+        for ref in ref_dataset['stations']:
+            plots.append(map.plot(ref['longitude'], ref['latitude'],
+                    latlon=True, color='red', marker='o',
+                    linestyle='', markerfacecolor='none'))
 
+        for row in dataset['data_sets'][0]['stations']:
+            plots.append(map.plot(row['longitude'], row['latitude'],
+                    latlon=True, color='blue', marker='o',
+                    linestyle='', markerfacecolor='none'))
+        title = "Overview map: \n"
+        title += "Cruise {} \n".format(dataset_expocode)
+        title += "against {}".format(expocode)
+        plt.title(title, fontsize=20)
         # Save the map
         link = '/static/data/plots/' + expocode + '_overview.png'
         plt.savefig(path + link, bbox_inches='tight', dpi=150)
