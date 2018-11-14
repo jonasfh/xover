@@ -1,5 +1,6 @@
 import re
 from django.db import connection
+import json
 
 def get_data_set_data(data_set_ids=[0], types=[], bounds=[], min_depth=0, max_depth=0):
     """
@@ -277,3 +278,20 @@ def get_xover_data_sets(data_set_id, range=200*1000, use_bbox=True):
 
     cursor.execute(select, args)
     return [row[0] for row in cursor.fetchall()]
+
+def get_data_set_center(data_set_id):
+    """Get the center of a data set by taking the extent of the dataset
+    and finding the middle.
+
+    Returns [lon lat]
+    """
+
+    cursor = connection.cursor()
+    select = """
+            SELECT st_asgeojson(ST_Centroid(st_extent(position)))
+            FROM d2qc_stations
+            WHERE data_set_id = %s
+    """
+    args = [data_set_id]
+    cursor.execute(select, args)
+    return json.loads(cursor.fetchone()[0])['coordinates']
