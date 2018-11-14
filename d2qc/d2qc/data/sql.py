@@ -2,7 +2,7 @@ import re
 from django.db import connection
 import json
 
-def get_data_set_data(data_set_ids=[0], types=[], bounds=[], min_depth=0, max_depth=0):
+def get_data_set_data(data_set_ids, types=[], bounds=[], min_depth=0, max_depth=0):
     """
     Get data for a multiple datasets as a list of hierachical objects.
 
@@ -34,6 +34,8 @@ def get_data_set_data(data_set_ids=[0], types=[], bounds=[], min_depth=0, max_de
                     {
                         station_id: 1234,
                         station_number: 12,
+                        latitude: 60.13,
+                        longitude: 10.10,
                         casts: [
                             {
                                 "cast_id": 5678,
@@ -53,22 +55,12 @@ def get_data_set_data(data_set_ids=[0], types=[], bounds=[], min_depth=0, max_de
                                 "1985-01-01 20:00:00",
                                 ...
                                 ],
-                                "latitude": [
-                                60.13,
-                                61.10,
-                                ...
-                                ],
-                                "longitude": [
-                                10.10,
-                                11.10,
-                                ...
-                                ],
-                                "temperature_value": [
+                                "temperature": [
                                 1.1432,
                                 1.1333,
                                 ...
                                 ],
-                                "salinity_value": [
+                                "salinity": [
                                 35.4504,
                                 35.4550,
                                 ...
