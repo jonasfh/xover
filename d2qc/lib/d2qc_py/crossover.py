@@ -1,12 +1,14 @@
 from math import radians, cos, sin, asin, sqrt
 #from pylab import savefig
 import matplotlib.pyplot as plt
+import matplotlib.markers
 
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
 import numpy as np
 import os.path
 import d2qc.data as data
+from d2qc.data.sql import *
 from PIL import Image
 
 def crossover(data = None, refdata = None):
@@ -86,22 +88,28 @@ def plot_overview_map(dataset = [], refdata=[], center_lat=0, center_lon=0):
     return links
 
 
-def plot_bounds_map(bounds, dataset = [], refdata=[], limit=222000):
+def plot_bounds_map(dataset = [], limit=222000):
     """
     Plot reference cruise data points within the limit (222km) with the current
     cruise, to show details of how they match in space.
     """
-    if not bounds:
-        return
+    data_set_id = int(dataset['data_sets'][0]['data_set_id'])
+    stations = get_xover_data_sets(
+            data_set_id,
+            station_info=True,
+            use_bbox = False
+    )
+    bounds = list(dataset_extends(data_set_id))
+    # Add a 10% buffer:
+    latplus = abs(bounds[0] - bounds[1]) / 10
+    lonplus = abs(bounds[2] - bounds[3]) / 10
+    bounds[0] -= latplus
+    bounds[1] += latplus
+    bounds[2] -= lonplus
+    bounds[3] += lonplus
+    center_lat = bounds[0] + ((bounds[1] - bounds[0]) / 2)
+    center_lon= bounds[2] + ((bounds[3] - bounds[2]) / 2)
 
-    for ix,name in enumerate(dataset[0]['data_columns']):
-        if name == 'latitude':
-            latix = ix
-        elif name == 'longitude':
-            lonix = ix
-
-    center_lat = (bounds[0] + bounds[1]) / 2
-    center_lon = (bounds[2] + bounds[3]) / 2
     map = Basemap(llcrnrlon=bounds[2],llcrnrlat=bounds[0],
             urcrnrlon=bounds[3],urcrnrlat=bounds[1],
             projection='merc', lat_0=center_lat,
@@ -117,60 +125,110 @@ def plot_bounds_map(bounds, dataset = [], refdata=[], limit=222000):
     path = os.path.dirname(data.__file__)
     links = {}
     plots = []
-    positions =  [];
-    lat = None
-    lon = None
-    for row in dataset[0]['data_points']:
-        if lat != row[latix] and lon != row[lonix]:
-            positions.append((row[lonix], row[latix]))
-        lat = row[latix]
-        lon = row[lonix]
+    latitude = []
+    longitude = []
+    for station in dataset['data_sets'][0]['stations']:
+        latitude.append(station['latitude'])
+        longitude.append(station['longitude'])
+    p = map.scatter(
+            longitude,
+            latitude,
+            latlon=True,
+            s=3200,
+            facecolors='none',
+            edgecolors='r',
+            linewidths=.1
+    )
+    plots.append(p)
+    p = map.scatter(
+            longitude,
+            latitude,
+            latlon=True,
+            s=10,
+            marker='.',
+            c='r',
+    )
+    plots.append(p)
 
-    cnt = 0
-    for ref_dataset in refdata:
-        expocode = ref_dataset['expocode']
-        ref_lat = None
-        ref_lon = None
-        lat = None
-        lon = None
-        for ref in ref_dataset['data_points']:
-            if ref_lat != ref[latix] and ref_lon != ref[lonix]:
-                for p in positions:
-                    dist = get_haversine_distance(p[1], p[0], ref[latix], ref[lonix])
-                    if dist < limit:
-                        plots.append(map.plot(
-                                float(ref[lonix]),
-                                float(ref[latix]),
-                                latlon=True,
-                                color='red',
-                                marker='o',
-                                linestyle='',
-                                markerfacecolor='none'
-                        ))
-                        break
-            ref_lat = ref[latix]
-            ref_lon = ref[lonix]
-        for p in positions:
-            plots.append(map.plot(
-                    float(p[0]),
-                    float(p[1]),
-                    latlon=True,
-                    color='blue',
-                    marker='o',
-                    linestyle='',
-                    markerfacecolor='none'
-            ))
+    p = map.scatter(
+            [12.995],
+            [76.3333],
+            latlon=True,
+            s=3200,
+            facecolors='none',
+            edgecolors='g',
+            linewidths=.1
+    )
+    plots.append(p)
 
+    for station in stations:
+        p = map.scatter(
+                station['longitude'],
+                station['latitude'],
+                latlon=True,
+                s=10,
+                facecolors='none',
+                edgecolors='b',
+                linewidths=.5
+        )
+        plots.append(p)
+
+
+    expocode="ABCD12345678"
+
+    # lat = None
+    # lon = None
+    # for row in dataset[0]['data_points']:
+    #     if lat != row[latix] and lon != row[lonix]:
+    #         positions.append((row[lonix], row[latix]))
+    #     lat = row[latix]
+    #     lon = row[lonix]
+    #
+    # cnt = 0
+    # for ref_dataset in refdata:
+    #     expocode = ref_dataset['expocode']
+    #     ref_lat = None
+    #     ref_lon = None
+    #     lat = None
+    #     lon = None
+    #     for ref in ref_dataset['data_points']:
+    #         if ref_lat != ref[latix] and ref_lon != ref[lonix]:
+    #             for p in positions:
+    #                 dist = get_haversine_distance(p[1], p[0], ref[latix], ref[lonix])
+    #                 if dist < limit:
+    #                     plots.append(map.plot(
+    #                             float(ref[lonix]),
+    #                             float(ref[latix]),
+    #                             latlon=True,
+    #                             color='red',
+    #                             marker='o',
+    #                             linestyle='',
+    #                             markerfacecolor='none'
+    #                     ))
+    #                     break
+    #         ref_lat = ref[latix]
+    #         ref_lon = ref[lonix]
+    #     for p in positions:
+    #         plots.append(map.plot(
+    #                 float(p[0]),
+    #                 float(p[1]),
+    #                 latlon=True,
+    #                 color='blue',
+    #                 marker='o',
+    #                 linestyle='',
+    #                 markerfacecolor='none'
+    #         ))
+    #
         # Save the map
-        link = '/static/data/plots/' + expocode + '_bounds.png'
-        plt.savefig(path + link, bbox_inches='tight', dpi=150)
-        links[expocode] = link
-        for p in plots:
-            p[0].remove()
-        plots = []
-        cnt += 1
-        if cnt>8:
-            break
+    link = '/static/data/plots/' + expocode + '_bounds.png'
+    plt.savefig(path + link, bbox_inches='tight', dpi=150)
+    links[expocode] = link
+    # for p in plots:
+    #     p[0].remove()
+    # plots = []
+    # cnt += 1
+    # if cnt>8:
+    #     break
 
     plt.close('all')
     return links

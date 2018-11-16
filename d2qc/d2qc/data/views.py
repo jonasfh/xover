@@ -65,7 +65,7 @@ def dataSet(
         request, data_set_ids=[0], types=['temperature'], bounds=[], min_depth=0,
         max_depth=0
 ):
-    result=get_data_set_data(data_set_ids, types, bounds, min_depth, max_depth)
+    result = get_data_set_data(data_set_ids, types, bounds, min_depth, max_depth)
     return Response(result)
 
 @api_view()
@@ -78,13 +78,36 @@ def crossover(request, data_set_id=0, types=[]):
     types = list(set(types))
     min_depth = 1000
     dataset = get_data_set_data([data_set_id], types, min_depth=min_depth)
-    bounds = dataset_extends(data_set_id)
 
-    ref_ids = DataSet.objects.filter(
-            Q(min_lat__lte=bounds[1]) & Q(max_lat__gte=bounds[0]) &
-            Q(min_lon__lte=bounds[3]) & Q(max_lon__gte=bounds[2])
-    ).values_list('id', flat=True).distinct()
-    refdata = get_data_set_data(ref_ids, types, bounds, min_depth)
+
+    # ref_ids = get_xover_data_sets(data_set_id, range=50000)
+
+    # refdata = get_data_set_data(ref_ids, types=types, min_depth=min_depth)
+    center_lon, center_lat = get_data_set_center(data_set_id)
+
+    # overview = plot_overview_map(dataset, refdata, center_lat=center_lat,
+    #         center_lon=center_lon)
+    stations = get_xover_data_sets(
+            data_set_id,
+            station_info=True,
+            use_bbox = False
+    )
+    boundsmap = plot_bounds_map(dataset)
+
+    return Response(stations)
+
+
+    links = []
+    path = os.path.dirname(data.__file__)
+    for k,m in boundsmap.items():
+        l = m + '_merge.png'
+        merge_images(path + overview[k], path + m, path + l)
+        links.append(l)
+        os.remove(path + m)
+        os.remove(path + overview[k])
+    template = loader.get_template('data/index.html')
+    context = {'links': links,}
+    return HttpResponse(template.render(context, request))
 
     for ix,name in enumerate(dataset[0]['data_columns']):
         if name == 'data_point_id':
@@ -107,20 +130,3 @@ def crossover(request, data_set_id=0, types=[]):
             statix = ix
         else:
             crossix = ix
-
-    center_lat = (bounds[0] + bounds[1]) / 2
-    center_lon = (bounds[2] + bounds[3]) / 2
-    overview = plot_overview_map(dataset, refdata, center_lat=center_lat,
-            center_lon=center_lon)
-    boundsmap = plot_bounds_map(bounds, dataset, refdata)
-    links = []
-    path = os.path.dirname(data.__file__)
-    for k,m in boundsmap.items():
-        l = m + '_merge.png'
-        merge_images(path + overview[k], path + m, path + l)
-        links.append(l)
-        os.remove(path + m)
-        os.remove(path + overview[k])
-    template = loader.get_template('data/index.html')
-    context = {'links': links,}
-    return HttpResponse(template.render(context, request))

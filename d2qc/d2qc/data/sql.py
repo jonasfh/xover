@@ -134,6 +134,7 @@ def get_data_set_data(data_set_ids, types=[], bounds=[], min_depth=0, max_depth=
 
 
     order = " ORDER BY s.data_set_id ASC, s.id, c.id, d.id"
+    print(select + frm + join + where + order)
     cursor.execute(select + frm + join + where + order, args)
 
     data_set_id = ()
@@ -199,7 +200,7 @@ def get_data_set_data(data_set_ids, types=[], bounds=[], min_depth=0, max_depth=
 
     return output
 
-def dataset_extends(data_set_id, min_depth = 0):
+def dataset_extends(data_set_id, min_depth=0):
     cursor = connection.cursor()
     select = """
             SELECT
@@ -221,7 +222,9 @@ def dataset_extends(data_set_id, min_depth = 0):
     cursor.execute(select + join + where, args)
     return cursor.fetchone()
 
-def get_xover_data_sets(data_set_id, range=200*1000, use_bbox=True):
+def get_xover_data_sets(
+        data_set_id, range=200*1000, use_bbox=True, station_info=False
+):
     """Get all datasets that have stations within the range of stations in this
     dataset, using the provided range in meters.
 
@@ -245,31 +248,64 @@ def get_xover_data_sets(data_set_id, range=200*1000, use_bbox=True):
 
     """
     cursor = connection.cursor()
-    select = """
-            SELECT DISTINCT s.data_set_id
-            FROM d2qc_stations s, d2qc_stations s2
+    select = 'SELECT DISTINCT s.data_set_id'
+    sfrom = """
+            FROM d2qc_stations s2, d2qc_stations s 
+    """
+    where = """
             WHERE ST_DistanceSphere(s.position, s2.position) < %s
             AND s2.data_set_id=%s AND s.data_set_id<>%s
-            ORDER BY s.data_set_id;
     """
+    order = 'ORDER BY s.data_set_id'
+    join = ''
     args = [range, data_set_id, data_set_id]
     if use_bbox:
-        select = """
-                SELECT DISTINCT s.data_set_id
+        sfrom = """
                 FROM d2qc_stations s, (
                     SELECT  ST_Extent(position) AS position
                     FROM d2qc_stations
                     WHERE data_set_id=%s
                 ) s2
+                """
+        where = """
                 WHERE ST_DistanceSphere(s.position, s2.position) < %s
                 AND s.data_set_id<>%s
-                ORDER BY s.data_set_id;
         """
         args = [data_set_id, range, data_set_id]
+    if station_info:
+        select = """
+                SELECT DISTINCT ON (s.data_set_id, s.id) s.data_set_id, s.id,
+                ST_X(s.position), ST_Y(s.position), ds.expocode
+        """
+        join = 'INNER JOIN d2qc_data_sets ds on (s.data_set_id=ds.id)'
+
+        order += ", s.id "
+    cursor.execute(select + sfrom + join + where + order, args)
+    if station_info:
+        retval = []
+        dataset = False
+        for row in cursor.fetchall():
+            if not dataset or row[0] != dataset['data_set_id']:
+                if dataset:
+                    retval.append(dataset)
+                dataset = {
+                    'data_set_id': row[0],
+                    'expocode': row[4],
+                    'station_id':[],
+                    'longitude':[],
+                    'latitude':[],
+                }
+            dataset['station_id'].append(row[1])
+            dataset['longitude'].append(row[2])
+            dataset['latitude'].append(row[3])
+        if dataset:
+            retval.append(dataset)
+        return retval
+    else:
+        return [row[0] for row in cursor.fetchall()]
 
 
-    cursor.execute(select, args)
-    return [row[0] for row in cursor.fetchall()]
+
 
 def get_data_set_center(data_set_id):
     """Get the center of a data set by taking the extent of the dataset
